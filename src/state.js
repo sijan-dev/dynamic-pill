@@ -2,6 +2,7 @@ import GLib from 'gi://GLib';
 
 export const Priority = {
     CRITICAL: 10,
+    DASHBOARD: 15,
     NOTIFICATION: 20,
     PRIVACY: 25,
     MEDIA: 30,
@@ -218,6 +219,9 @@ export class StateManager {
                 break;
             case 'privacy':
                 this.push({ id: 'privacy', priority: Priority.PRIVACY, view: 'generic', data: { icon: 'audio-input-microphone-symbolic', title: 'Microphone Active', subtitle: '' }, duration: 4000 });
+                break;
+            case 'dashboard':
+                this.push({ id: 'dashboard', priority: Priority.DASHBOARD, view: 'dashboard', data: {}, duration: 8000 });
                 break;
             case 'idle':
                 this.forceIdle();

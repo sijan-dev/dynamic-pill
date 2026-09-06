@@ -5,6 +5,7 @@ import Gio from 'gi://Gio';
 import GObject from 'gi://GObject';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as Slider from 'resource:///org/gnome/shell/ui/slider.js';
 
 export class DynamicPill {
     constructor(stateManager, settings, extensionPath) {
@@ -23,11 +24,22 @@ export class DynamicPill {
 
         this._animationDuration = settings ? settings.get_int('animation-speed') : 260;
 
+        // Dashboard internals
+        this._dashboardData = null;
+        this._volumeSlider = null;
+        this._brightnessSlider = null;
+        this._mixer = null;
+        this._mixerSignals = [];
+        this._brightnessProxy = null;
+        this._brightnessSigId = null;
+        this._mediaCache = null; // last MPRIS data
+
         this._createActor();
         this._bindSettings();
         this._setupStateListener();
         this._setupClock();
         this._updatePosition();
+        this._listenMediaForDashboard();
     }
 
     _createActor() {
@@ -232,7 +244,6 @@ export class DynamicPill {
 
     _setupStateListener() {
         this._stateListener = (event, state) => {
-            // console.log(`[DynamicPill] state -> ${event.id} / ${state}`)
             this._onStateChanged(event, state);
         };
         this._stateManager.addListener(this._stateListener);
@@ -240,9 +251,36 @@ export class DynamicPill {
         this._stateManager.showIdle();
     }
 
+    _listenMediaForDashboard() {
+        // Cache last media event to show in dashboard even when idle
+        this._mediaListener = (event) => {
+            if (event && event.view === 'media') {
+                this._mediaCache = event.data;
+                // If dashboard is open, update its media row live
+                if (this._currentView === 'dashboard') {
+                    this._updateDashboardMedia();
+                }
+            }
+        };
+        this._stateManager.addListener(this._mediaListener);
+    }
+
     _onStateChanged(event, state) {
         if (!event) return;
-
+        // If dashboard is open and a volume/brightness event arrives, just update sliders
+        if (this._currentView === 'dashboard' && (event.view === 'volume' || event.view === 'brightness')) {
+            if (event.view === 'volume' && this._volumeSlider) {
+                this._volumeSlider._ignoreNotify = true;
+                this._volumeSlider.value = event.data.muted ? 0 : event.data.level;
+                this._volumeSlider._ignoreNotify = false;
+            }
+            if (event.view === 'brightness' && this._brightnessSlider) {
+                this._brightnessSlider._ignoreNotify = true;
+                this._brightnessSlider.value = event.data.level;
+                this._brightnessSlider._ignoreNotify = false;
+            }
+            return;
+        }
         if (event.id === 'idle') {
             this._animateToView('idle', event.data);
         } else {
@@ -253,18 +291,22 @@ export class DynamicPill {
     _handleClick() {
         const cur = this._stateManager.current;
         if (!cur || cur.id === 'idle') {
-            // Idle click: open calendar / quick settings
-            try {
-                if (Main.panel.statusArea.dateMenu) {
-                    Main.panel.statusArea.dateMenu.menu.toggle();
-                } else if (Main.panel.statusArea.quickSettings) {
-                    Main.panel.statusArea.quickSettings.menu.toggle();
-                }
-            } catch (e) { log(`[DynamicPill] idle click error: ${e}`); }
+            // Idle click: toggle in-pill dashboard (A) — no external window
+            this._stateManager.push({
+                id: 'dashboard',
+                priority: 15, // Priority.DASHBOARD
+                view: 'dashboard',
+                data: {},
+                duration: 8000,
+            });
+            return;
+        }
+        if (cur.id === 'dashboard') {
+            this._stateManager.forceIdle();
             return;
         }
 
-        // View-specific actions
+        // View-specific actions for transient pills — keep inside pill where possible
         switch (cur.view) {
             case 'media':
                 try {
@@ -280,29 +322,49 @@ export class DynamicPill {
                     }
                 } catch (e) { }
                 break;
-            case 'volume':
-                try {
-                    // Open sound settings
-                    Gio.AppInfo.launch_default_for_uri('gnome-control-center sound', null);
-                } catch (e) {
-                    try { Main.panel.statusArea.quickSettings.menu.open(); } catch (_) {}
-                }
-                break;
-            case 'brightness':
-                try { Gio.AppInfo.launch_default_for_uri('gnome-control-center display', null); } catch (e) {}
-                break;
             case 'notification':
-                // Dismiss and optionally open app
                 this._stateManager.dismiss(cur.id);
                 break;
+            case 'volume':
+            case 'brightness':
+            case 'battery':
+            case 'workspace':
+            case 'generic':
+                // For transient pills, click toggles dashboard instead of opening external settings
+                this._stateManager.push({
+                    id: 'dashboard',
+                    priority: 15,
+                    view: 'dashboard',
+                    data: {},
+                    duration: 8000,
+                });
+                break;
             default:
+                this._stateManager.forceIdle();
                 break;
         }
     }
 
     _clearContent() {
+        this._cleanupDashboardResources();
         this._contentBox.remove_all_children();
         this._views.clear();
+    }
+
+    _cleanupDashboardResources() {
+        if (this._mixer && this._mixerSignals.length) {
+            for (const [obj, id] of this._mixerSignals) {
+                try { obj.disconnect(id); } catch (e) {}
+            }
+            this._mixerSignals = [];
+        }
+        if (this._brightnessProxy && this._brightnessSigId) {
+            try { this._brightnessProxy.disconnect(this._brightnessSigId); } catch (e) {}
+            this._brightnessSigId = null;
+        }
+        // Don't close mixer persistently — keep for reuse
+        this._volumeSlider = null;
+        this._brightnessSlider = null;
     }
 
     _showIdleView() {
@@ -328,12 +390,274 @@ export class DynamicPill {
             style: 'text-align: center;',
         });
         label.clutter_text.set_single_line_mode(true);
-        label.clutter_text.set_ellipsize(0); // Pango.EllipsizeMode.NONE
+        label.clutter_text.set_ellipsize(0);
 
         box.add_child(label);
         this._contentBox.add_child(box);
         this._views.set('idle-label', label);
         this._views.set('idle-box', box);
+    }
+
+    _ensureMixer() {
+        if (this._mixer) return this._mixer;
+        try {
+            const Gvc = (globalThis.imports && globalThis.imports.gi && globalThis.imports.gi.Gvc) || null;
+            if (Gvc) {
+                this._mixer = new Gvc.MixerControl({ name: 'DynamicPill Dashboard' });
+                this._mixer.open();
+                // Hook sink after a short delay
+                GLib.timeout_add(GLib.PRIORITY_DEFAULT, 600, () => {
+                    try {
+                        const sink = this._mixer.get_default_sink();
+                        if (sink) {
+                            const id1 = sink.connect('notify::volume', () => this._onMixerVolumeChanged());
+                            const id2 = sink.connect('notify::is-muted', () => this._onMixerVolumeChanged());
+                            this._mixerSignals.push([sink, id1], [sink, id2]);
+                        }
+                    } catch (e) {}
+                    return GLib.SOURCE_REMOVE;
+                });
+            }
+        } catch (e) { log(`[DynamicPill] dashboard mixer init failed: ${e}`); }
+        return this._mixer;
+    }
+
+    _onMixerVolumeChanged() {
+        if (this._currentView !== 'dashboard' || !this._volumeSlider) return;
+        try {
+            const sink = this._mixer.get_default_sink();
+            if (!sink) return;
+            const vol = sink.get_volume();
+            const max = this._mixer.get_vol_max_norm();
+            const level = max ? vol / max : 0;
+            const muted = sink.get_is_muted();
+            this._volumeSlider._ignoreNotify = true;
+            this._volumeSlider.value = muted ? 0 : level;
+            this._volumeSlider._ignoreNotify = false;
+        } catch (e) {}
+    }
+
+    _ensureBrightnessProxy() {
+        if (this._brightnessProxy) return;
+        try {
+            Gio.DBusProxy.new_for_bus(
+                Gio.BusType.SESSION,
+                Gio.DBusProxyFlags.NONE,
+                null,
+                'org.gnome.SettingsDaemon.Power',
+                '/org/gnome/SettingsDaemon/Power',
+                'org.gnome.SettingsDaemon.Power.Screen',
+                null,
+                (proxy, res) => {
+                    try {
+                        this._brightnessProxy = Gio.DBusProxy.new_for_bus_finish(res);
+                        if (this._brightnessProxy) {
+                            const pct = this._brightnessProxy.get_cached_property('Brightness')?.unpack() ?? 50;
+                            if (this._brightnessSlider) {
+                                this._brightnessSlider._ignoreNotify = true;
+                                this._brightnessSlider.value = pct / 100;
+                                this._brightnessSlider._ignoreNotify = false;
+                            }
+                            this._brightnessSigId = this._brightnessProxy.connect('g-properties-changed', (p, props) => {
+                                try {
+                                    const dict = props.recursiveUnpack();
+                                    const _u = v => (v && typeof v === 'object' && v.unpack) ? v.unpack() : v;
+                                    if ('Brightness' in dict) {
+                                        const lvl = _u(dict['Brightness']) / 100;
+                                        if (this._brightnessSlider) {
+                                            this._brightnessSlider._ignoreNotify = true;
+                                            this._brightnessSlider.value = lvl;
+                                            this._brightnessSlider._ignoreNotify = false;
+                                        }
+                                    }
+                                } catch (e) {}
+                            });
+                        }
+                    } catch (e) {}
+                }
+            );
+        } catch (e) {}
+    }
+
+    _showDashboardView() {
+        this._clearContent();
+        this._currentView = 'dashboard';
+
+        const outer = new St.BoxLayout({
+            vertical: true,
+            style_class: 'dynamic-pill-dashboard',
+            x_expand: false,
+            y_expand: false,
+            spacing: 10,
+            width: 420,
+        });
+
+        // Media row (if cached)
+        const media = this._mediaCache;
+        if (media) {
+            const mediaRow = new St.BoxLayout({ vertical: false, spacing: 10, style_class: 'dynamic-pill-dashboard-media', x_expand: true });
+            const artBox = new St.Widget({ style_class: 'dynamic-pill-media-art', width: 44, height: 44, layout_manager: new Clutter.BinLayout() });
+            const artIcon = new St.Icon({ icon_name: 'audio-x-generic-symbolic', icon_size: 22, x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER });
+            artBox.add_child(artIcon);
+            const textCol = new St.BoxLayout({ vertical: true, x_expand: true, y_align: Clutter.ActorAlign.CENTER });
+            const title = new St.Label({ text: media.title || 'No track', style_class: 'dynamic-pill-media-title' });
+            title.clutter_text.set_single_line_mode(true);
+            const artist = new St.Label({ text: media.artist || media.album || 'Unknown', style_class: 'dynamic-pill-media-artist' });
+            artist.clutter_text.set_single_line_mode(true);
+            textCol.add_child(title);
+            textCol.add_child(artist);
+            const controls = new St.BoxLayout({ vertical: false, spacing: 6, y_align: Clutter.ActorAlign.CENTER, style_class: 'dynamic-pill-media-controls' });
+            const prevBtn = new St.Button({ style_class: 'dynamic-pill-media-button', can_focus: true });
+            prevBtn.add_child(new St.Icon({ icon_name: 'media-skip-backward-symbolic', icon_size: 14 }));
+            prevBtn.connect('clicked', () => this._mediaAction(media._playerName, 'Previous'));
+            const playIconName = media.status === 'Playing' ? 'media-playback-pause-symbolic' : 'media-playback-start-symbolic';
+            const playBtn = new St.Button({ style_class: 'dynamic-pill-media-button', can_focus: true });
+            playBtn.add_child(new St.Icon({ icon_name: playIconName, icon_size: 16 }));
+            playBtn.connect('clicked', () => this._mediaAction(media._playerName, 'PlayPause'));
+            const nextBtn = new St.Button({ style_class: 'dynamic-pill-media-button', can_focus: true });
+            nextBtn.add_child(new St.Icon({ icon_name: 'media-skip-forward-symbolic', icon_size: 14 }));
+            nextBtn.connect('clicked', () => this._mediaAction(media._playerName, 'Next'));
+            controls.add_child(prevBtn); controls.add_child(playBtn); controls.add_child(nextBtn);
+            mediaRow.add_child(artBox); mediaRow.add_child(textCol); mediaRow.add_child(controls);
+            outer.add_child(mediaRow);
+            this._views.set('dashboard-media-title', title);
+            this._views.set('dashboard-media-artist', artist);
+            // separator
+            const sep = new St.Widget({ style_class: 'dynamic-pill-dashboard-sep', x_expand: true, height: 1 });
+            outer.add_child(sep);
+        } else {
+            const hint = new St.Label({ text: 'No media playing — sliders below', style_class: 'dynamic-pill-subtitle', x_align: Clutter.ActorAlign.CENTER });
+            outer.add_child(hint);
+        }
+
+        // Sliders row: volume + brightness
+        const slidersRow = new St.BoxLayout({ vertical: false, spacing: 16, x_expand: true });
+
+        // Volume column
+        const volCol = new St.BoxLayout({ vertical: true, x_expand: true, spacing: 4 });
+        const volHeader = new St.BoxLayout({ vertical: false, spacing: 6 });
+        volHeader.add_child(new St.Icon({ icon_name: 'audio-volume-high-symbolic', style_class: 'dynamic-pill-icon', icon_size: 14 }));
+        volHeader.add_child(new St.Label({ text: 'Volume', style_class: 'dynamic-pill-title', x_expand: true }));
+        const volValueLabel = new St.Label({ text: '—', style_class: 'dynamic-pill-subtitle' });
+        volHeader.add_child(volValueLabel);
+        volCol.add_child(volHeader);
+        const volSlider = new Slider.Slider(0.5);
+        volSlider.x_expand = true;
+        volCol.add_child(volSlider);
+        slidersRow.add_child(volCol);
+
+        // Brightness column
+        const briCol = new St.BoxLayout({ vertical: true, x_expand: true, spacing: 4 });
+        const briHeader = new St.BoxLayout({ vertical: false, spacing: 6 });
+        briHeader.add_child(new St.Icon({ icon_name: 'display-brightness-symbolic', style_class: 'dynamic-pill-icon', icon_size: 14 }));
+        briHeader.add_child(new St.Label({ text: 'Brightness', style_class: 'dynamic-pill-title', x_expand: true }));
+        const briValueLabel = new St.Label({ text: '—', style_class: 'dynamic-pill-subtitle' });
+        briHeader.add_child(briValueLabel);
+        briCol.add_child(briHeader);
+        const briSlider = new Slider.Slider(0.5);
+        briSlider.x_expand = true;
+        briCol.add_child(briSlider);
+        slidersRow.add_child(briCol);
+
+        outer.add_child(slidersRow);
+
+        // Hint row
+        const hintRow = new St.Label({ text: 'Click pill again to close • Everything stays in the pill', style_class: 'dynamic-pill-dashboard-hint', x_align: Clutter.ActorAlign.CENTER });
+        outer.add_child(hintRow);
+
+        this._contentBox.add_child(outer);
+
+        // Wire sliders
+        this._volumeSlider = volSlider;
+        this._brightnessSlider = briSlider;
+        this._views.set('dashboard-vol-label', volValueLabel);
+        this._views.set('dashboard-bri-label', briValueLabel);
+
+        // Init current values
+        this._ensureMixer();
+        this._ensureBrightnessProxy();
+
+        // Set initial values from mixer/proxy
+        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 350, () => {
+            try {
+                const sink = this._mixer ? this._mixer.get_default_sink() : null;
+                if (sink) {
+                    const vol = sink.get_volume();
+                    const max = this._mixer.get_vol_max_norm();
+                    const lvl = max ? vol / max : 0.5;
+                    volSlider._ignoreNotify = true;
+                    volSlider.value = sink.get_is_muted() ? 0 : lvl;
+                    volSlider._ignoreNotify = false;
+                    volValueLabel.text = sink.get_is_muted() ? 'Muted' : `${Math.round(volSlider.value * 100)}%`;
+                }
+            } catch (e) {}
+            try {
+                if (this._brightnessProxy) {
+                    const b = this._brightnessProxy.get_cached_property('Brightness')?.unpack() ?? 50;
+                    briSlider._ignoreNotify = true;
+                    briSlider.value = b / 100;
+                    briSlider._ignoreNotify = false;
+                    briValueLabel.text = `${b}%`;
+                }
+            } catch (e) {}
+            return GLib.SOURCE_REMOVE;
+        });
+
+        volSlider.connect('notify::value', () => {
+            if (volSlider._ignoreNotify) return;
+            const v = volSlider.value;
+            volValueLabel.text = v === 0 ? 'Muted' : `${Math.round(v * 100)}%`;
+            try {
+                const sink = this._mixer ? this._mixer.get_default_sink() : null;
+                if (sink) {
+                    const max = this._mixer.get_vol_max_norm();
+                    sink.set_volume(Math.round(v * max));
+                    sink.set_is_muted(v === 0);
+                    // Push transient update so volume module doesn't overwrite dashboard
+                    Gio.DBus.session.call(
+                        'org.gnome.Shell', '/org/gnome/Shell', 'org.gnome.Shell', 'Eval',
+                        new GLib.Variant('(s)', ['true']), null, Gio.DBusCallFlags.NONE, -1, null, null
+                    );
+                }
+            } catch (e) {}
+        });
+
+        briSlider.connect('notify::value', () => {
+            if (briSlider._ignoreNotify) return;
+            const v = briSlider.value;
+            briValueLabel.text = `${Math.round(v * 100)}%`;
+            try {
+                if (this._brightnessProxy) {
+                    this._brightnessProxy.call(
+                        'Set',
+                        new GLib.Variant('(ssv)', ['org.gnome.SettingsDaemon.Power.Screen', 'Brightness', new GLib.Variant('i', Math.round(v * 100))]),
+                        Gio.DBusCallFlags.NONE, -1, null, null
+                    );
+                    // Fallback: try D-Bus Set via session
+                    Gio.DBus.session.call(
+                        'org.gnome.SettingsDaemon.Power',
+                        '/org/gnome/SettingsDaemon/Power',
+                        'org.freedesktop.DBus.Properties',
+                        'Set',
+                        new GLib.Variant('(ssv)', ['org.gnome.SettingsDaemon.Power.Screen', 'Brightness', new GLib.Variant('i', Math.round(v * 100))]),
+                        null, Gio.DBusCallFlags.NONE, -1, null, null
+                    );
+                }
+            } catch (e) {}
+        });
+
+        // Make dashboard sliders grab scroll
+        volSlider.reactive = true;
+        briSlider.reactive = true;
+    }
+
+    _updateDashboardMedia() {
+        if (this._currentView !== 'dashboard') return;
+        const media = this._mediaCache;
+        const title = this._views.get('dashboard-media-title');
+        const artist = this._views.get('dashboard-media-artist');
+        if (title) title.text = media.title || 'No track';
+        if (artist) artist.text = media.artist || media.album || 'Unknown';
     }
 
     _showVolumeView(data = {}) {
@@ -399,7 +723,6 @@ export class DynamicPill {
         const artBox = new St.Widget({ style_class: 'dynamic-pill-media-art', width: 48, height: 48, layout_manager: new Clutter.BinLayout() });
         let artIcon;
         if (data.artUrl) {
-            // Try to load via St.Icon fallback — we use icon; real album art would need texture cache
             artIcon = new St.Icon({ icon_name: 'media-optical-symbolic', icon_size: 32, x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER });
         } else {
             artIcon = new St.Icon({ icon_name: 'audio-x-generic-symbolic', icon_size: 24, x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER });
@@ -527,6 +850,7 @@ export class DynamicPill {
                 // Swap view
                 switch (view) {
                     case 'idle': this._showIdleView(); break;
+                    case 'dashboard': this._showDashboardView(); break;
                     case 'volume': this._showVolumeView(data); break;
                     case 'brightness': this._showBrightnessView(data); break;
                     case 'media': this._showMediaView(data); break;
@@ -575,6 +899,14 @@ export class DynamicPill {
         }
         if (this._stateManager && this._stateListener) {
             this._stateManager.removeListener(this._stateListener);
+        }
+        if (this._mediaListener && this._stateManager) {
+            try { this._stateManager.removeListener(this._mediaListener); } catch (e) {}
+        }
+        this._cleanupDashboardResources();
+        if (this._mixer) {
+            try { this._mixer.close(); } catch (e) {}
+            this._mixer = null;
         }
         if (this._container) {
             Main.layoutManager.removeChrome(this._container);

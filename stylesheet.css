@@ -129,6 +129,45 @@
     color: rgba(255, 255, 255, 0.45);
 }
 
+/* Dashboard — in-pill minimal control center (A) */
+.dynamic-pill-dashboard {
+    spacing: 10px;
+    padding: 10px 14px;
+}
+
+.dynamic-pill-dashboard-media {
+    spacing: 10px;
+}
+
+.dynamic-pill-dashboard-sep {
+    background-color: rgba(255, 255, 255, 0.08);
+    height: 1px;
+    margin: 2px 0;
+}
+
+.dynamic-pill-dashboard-hint {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.45);
+    padding-top: 2px;
+}
+
+/* sliders inside pill — inherit GNOME Slider styling but tint for dark pill */
+.dynamic-pill-dashboard StWidget.slider {
+    height: 18px;
+}
+
+.dynamic-pill-dashboard .slider {
+    -slider-height: 4px;
+    -slider-background-color: rgba(255, 255, 255, 0.14);
+    -slider-border-color: transparent;
+    -slider-active-background-color: #ffffff;
+    -slider-active-border-color: transparent;
+    -slider-border-width: 0;
+    -slider-handle-radius: 8px;
+    -slider-handle-border-width: 0;
+    -slider-handle-border-color: transparent;
+}
+
 /* Light variant when GNOME is in light mode — subtle adaptation */
 .dynamic-pill.light {
     background-color: rgba(36, 36, 36, 0.92);
