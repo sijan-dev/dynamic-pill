@@ -43,15 +43,18 @@ export class DynamicPill {
         });
 
         // The actual pill
-        this._pill = new St.Widget({
+        this._pill = new St.BoxLayout({
             style_class: 'dynamic-pill',
-            layout_manager: new Clutter.BinLayout(),
+            vertical: false,
             reactive: true,
             track_hover: true,
             can_focus: true,
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.START,
             opacity: 255,
+            clip_to_allocation: true,
+            x_expand: false,
+            y_expand: false,
         });
 
         // Content box inside pill
@@ -62,10 +65,13 @@ export class DynamicPill {
             y_expand: false,
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
+            clip_to_allocation: true,
         });
 
         this._pill.add_child(this._contentBox);
         this._container.add_child(this._pill);
+        // ensure no leftover scale from previous animation
+        this._pill.set_scale(1.0, 1.0);
 
         // Make pill clickable
         this._pill.connect('button-press-event', (actor, event) => {
@@ -318,7 +324,11 @@ export class DynamicPill {
             text,
             style_class: 'dynamic-pill-idle-label',
             y_align: Clutter.ActorAlign.CENTER,
+            x_align: Clutter.ActorAlign.CENTER,
+            style: 'text-align: center;',
         });
+        label.clutter_text.set_single_line_mode(true);
+        label.clutter_text.set_ellipsize(0); // Pango.EllipsizeMode.NONE
 
         box.add_child(label);
         this._contentBox.add_child(box);
@@ -528,18 +538,12 @@ export class DynamicPill {
                 }
                 this._updateIdleClock();
 
-                // Animate pill width naturally via layout; do opacity/scale
-                this._pill.set_scale(0.96, 0.96);
+                // Crisp opacity-only transition — avoids subpixel scale blur that caused distortion
+                this._pill.set_scale(1.0, 1.0);
                 this._contentBox.opacity = 0;
-                this._pill.ease({
-                    scale_x: 1.0,
-                    scale_y: 1.0,
-                    duration,
-                    mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
-                });
                 this._contentBox.ease({
                     opacity: 255,
-                    duration: duration * 0.8,
+                    duration: duration * 0.85,
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                 });
                 // Re-center after content change
