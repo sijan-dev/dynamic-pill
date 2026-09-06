@@ -51,8 +51,14 @@ export class BatteryModule {
     _onDeviceChanged(props) {
         try {
             const dict = props.recursiveUnpack();
-            const pct = dict['Percentage'] !== undefined ? Math.round(dict['Percentage'].unpack()) : this._lastPct;
-            const state = dict['State'] !== undefined ? dict['State'].unpack() : this._lastState;
+            const _unpack = v => {
+                if (v === null || v === undefined) return v;
+                // recursiveUnpack already unwraps, but keep compatibility
+                if (typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean') return v;
+                try { return v.unpack ? v.unpack() : v; } catch (_) { return v; }
+            };
+            const pct = dict['Percentage'] !== undefined ? Math.round(_unpack(dict['Percentage'])) : this._lastPct;
+            const state = dict['State'] !== undefined ? _unpack(dict['State']) : this._lastState;
             // UPower states: 1 charging, 2 discharging, 4 fully charged, 5 pending charge
             const changed = pct !== this._lastPct || state !== this._lastState;
             if (!changed) return;
