@@ -112,18 +112,19 @@ export class VolumeModule {
     _onShowOSD(params) {
         try {
             const unpacked = params.recursiveUnpack();
+            const _u = v => (v && typeof v === 'object' && v.unpack) ? v.unpack() : v;
             // ShowOSD params is a{sv} with keys like 'level', 'icon', 'label'
             // Example: {'icon': <'audio-volume-high-symbolic'>, 'level': <0.72>}
             let level, icon;
             if (Array.isArray(unpacked)) {
                 const dict = unpacked[0];
                 if (dict && typeof dict === 'object') {
-                    level = dict['level'] !== undefined ? dict['level'].unpack() : undefined;
-                    icon = dict['icon'] !== undefined ? dict['icon'].unpack() : undefined;
+                    level = dict['level'] !== undefined ? _u(dict['level']) : undefined;
+                    icon = dict['icon'] !== undefined ? _u(dict['icon']) : undefined;
                 }
             } else if (unpacked && typeof unpacked === 'object') {
-                level = unpacked['level'] !== undefined ? unpacked['level'].unpack() : undefined;
-                icon = unpacked['icon'] !== undefined ? unpacked['icon'].unpack() : undefined;
+                level = unpacked['level'] !== undefined ? _u(unpacked['level']) : undefined;
+                icon = unpacked['icon'] !== undefined ? _u(unpacked['icon']) : undefined;
             }
             if (level !== undefined || (icon && icon.includes('audio-volume'))) {
                 const muted = icon && icon.includes('muted');

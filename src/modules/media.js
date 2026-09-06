@@ -123,9 +123,18 @@ export class MediaModule {
 
     _fetchMetadata(player, preChanged) {
         const busName = `org.mpris.MediaPlayer2.${player}`;
+        const _unwrap = v => {
+            if (v === null || v === undefined) return v;
+            if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return v;
+            try { if (v.recursiveUnpack) return v.recursiveUnpack(); } catch (_) {}
+            try { if (v.unpack) return v.unpack(); } catch (_) {}
+            return v;
+        };
         // If we have changed dict, use it to avoid extra call if it contains Metadata
         if (preChanged && 'Metadata' in preChanged) {
-            this._handleMetadata(player, preChanged['Metadata'].recursiveUnpack(), preChanged['PlaybackStatus'] ? preChanged['PlaybackStatus'].unpack() : null);
+            const meta = _unwrap(preChanged['Metadata']);
+            const status = preChanged['PlaybackStatus'] ? _unwrap(preChanged['PlaybackStatus']) : null;
+            this._handleMetadata(player, meta, status);
             return;
         }
 
@@ -144,8 +153,15 @@ export class MediaModule {
                     const [props] = conn.call_finish(res).recursiveUnpack();
                     const metaRaw = props['Metadata'];
                     const statusRaw = props['PlaybackStatus'];
-                    const meta = metaRaw ? metaRaw.recursiveUnpack() : {};
-                    const status = statusRaw ? statusRaw.unpack() : 'Stopped';
+                    const _u2 = v => {
+                        if (v === null || v === undefined) return v;
+                        if (typeof v === 'string' || typeof v === 'number') return v;
+                        try { if (v.recursiveUnpack) return v.recursiveUnpack(); } catch (_) {}
+                        try { if (v.unpack) return v.unpack(); } catch (_) {}
+                        return v;
+                    };
+                    const meta = metaRaw ? _u2(metaRaw) : {};
+                    const status = statusRaw ? _u2(statusRaw) : 'Stopped';
                     this._handleMetadata(player, meta, status);
                 } catch (e) {}
             }

@@ -52,12 +52,13 @@ export class BrightnessModule {
     _onShowOSD(params) {
         try {
             const unpacked = params.recursiveUnpack();
+            const _u = v => (v && typeof v === 'object' && v.unpack) ? v.unpack() : v;
             let dict, level, icon;
             if (Array.isArray(unpacked)) dict = unpacked[0];
             else dict = unpacked;
             if (dict && typeof dict === 'object') {
-                level = dict['level'] !== undefined ? dict['level'].unpack() : undefined;
-                icon = dict['icon'] !== undefined ? dict['icon'].unpack() : undefined;
+                level = dict['level'] !== undefined ? _u(dict['level']) : undefined;
+                icon = dict['icon'] !== undefined ? _u(dict['icon']) : undefined;
             }
             if (icon && (icon.includes('brightness') || icon.includes('display-brightness'))) {
                 const lvl = level ?? this._lastLevel;
@@ -79,8 +80,9 @@ export class BrightnessModule {
     _onPropertiesChanged(props) {
         try {
             const dict = props.recursiveUnpack();
+            const _u = v => (v && typeof v === 'object' && v.unpack) ? v.unpack() : v;
             if ('Brightness' in dict) {
-                const lvl = dict['Brightness'].unpack() / 100.0;
+                const lvl = _u(dict['Brightness']) / 100.0;
                 if (Math.abs(lvl - this._lastLevel) < 0.01) return;
                 this._lastLevel = lvl;
                 this._debounce(() => {

@@ -27,9 +27,10 @@ export class BluetoothModule {
     _onPropsChanged(path, params) {
         try {
             const [iface, changed] = params.recursiveUnpack();
+            const _u = v => (v && typeof v === 'object' && v.unpack) ? v.unpack() : v;
             if (iface !== 'org.bluez.Device1') return;
             if ('Connected' in changed) {
-                const connected = changed['Connected'].unpack();
+                const connected = _u(changed['Connected']);
                 const name = path.split('/').pop();
                 this._stateManager.push({
                     id: 'bluetooth',
