@@ -1,0 +1,18 @@
+# Compiled schemas
+schemas/gschemas.compiled
+*gschemas.compiled
+
+# Packed extension
+*.shell-extension.zip
+*.zip
+
+# OS
+.DS_Store
+*~
+
+# Editor
+.vscode/
+.idea/
+
+# Logs
+*.log

@@ -1,0 +1,128 @@
+/* Dynamic Pill — Fedora GNOME aesthetic */
+
+.dynamic-pill {
+    background-color: rgba(30, 30, 32, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.4);
+    padding: 0;
+    color: #eeeeec;
+    font-feature-settings: "tnum";
+    transition-duration: 250ms;
+}
+
+.dynamic-pill.compact {
+    padding: 0;
+}
+
+.dynamic-pill-content {
+    spacing: 10px;
+    padding: 6px 14px;
+}
+
+.dynamic-pill-idle {
+    spacing: 6px;
+    padding: 6px 16px;
+}
+
+.dynamic-pill-idle-label {
+    font-size: 13px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: #ffffff;
+}
+
+.dynamic-pill-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #eeeeec;
+}
+
+.dynamic-pill-subtitle {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.dynamic-pill-icon {
+    icon-size: 16px;
+    color: #ffffff;
+}
+
+.dynamic-pill-icon-large {
+    icon-size: 20px;
+}
+
+.dynamic-pill-progress {
+    background-color: rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    height: 6px;
+}
+
+.dynamic-pill-progress-fill {
+    background-color: #ffffff;
+    border-radius: 999px;
+}
+
+.dynamic-pill-media-art {
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.dynamic-pill-media-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #ffffff;
+    max-width: 220px;
+}
+
+.dynamic-pill-media-artist {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.65);
+    max-width: 220px;
+}
+
+.dynamic-pill-media-controls {
+    spacing: 8px;
+}
+
+.dynamic-pill-media-button {
+    border-radius: 999px;
+    padding: 4px;
+    background-color: rgba(255, 255, 255, 0.08);
+    transition-duration: 150ms;
+}
+
+.dynamic-pill-media-button:hover {
+    background-color: rgba(255, 255, 255, 0.16);
+}
+
+.dynamic-pill-media-button:active {
+    background-color: rgba(255, 255, 255, 0.24);
+}
+
+.dynamic-pill-notification-dot {
+    background-color: #3584e4;
+    border-radius: 999px;
+    width: 8px;
+    height: 8px;
+}
+
+.dynamic-pill-workspace {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 12px;
+}
+
+.dynamic-pill-battery-charging {
+    color: #26a269;
+}
+
+.dynamic-pill-volume-muted {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+/* Light variant when GNOME is in light mode — subtle adaptation */
+.dynamic-pill.light {
+    background-color: rgba(36, 36, 36, 0.92);
+    border-color: rgba(255, 255, 255, 0.12);
+}

@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.dynamic-pill" path="/org/gnome/shell/extensions/dynamic-pill/">
+    <!-- General -->
+    <key name="enable-pill" type="b">
+      <default>true</default>
+      <summary>Enable Dynamic Pill</summary>
+    </key>
+    <key name="idle-enabled" type="b">
+      <default>true</default>
+      <summary>Show idle clock pill</summary>
+    </key>
+    <key name="position" type="s">
+      <default>'top-center'</default>
+      <summary>Pill position</summary>
+    </key>
+    <key name="vertical-offset" type="i">
+      <default>6</default>
+      <summary>Vertical offset from top (px)</summary>
+    </key>
+    <key name="monitor-mode" type="s">
+      <default>'primary'</default>
+      <summary>Monitor mode: primary, active, all</summary>
+    </key>
+
+    <!-- Appearance -->
+    <key name="pill-opacity" type="d">
+      <default>0.92</default>
+      <summary>Pill opacity</summary>
+    </key>
+    <key name="animation-speed" type="i">
+      <default>260</default>
+      <summary>Animation duration ms</summary>
+    </key>
+    <key name="compact-mode" type="b">
+      <default>false</default>
+      <summary>Compact mode</summary>
+    </key>
+    <key name="show-shadow" type="b">
+      <default>true</default>
+      <summary>Show shadow</summary>
+    </key>
+
+    <!-- Events -->
+    <key name="enable-media" type="b">
+      <default>true</default>
+      <summary>Enable media</summary>
+    </key>
+    <key name="enable-volume" type="b">
+      <default>true</default>
+      <summary>Enable volume</summary>
+    </key>
+    <key name="enable-brightness" type="b">
+      <default>true</default>
+      <summary>Enable brightness</summary>
+    </key>
+    <key name="enable-battery" type="b">
+      <default>true</default>
+      <summary>Enable battery</summary>
+    </key>
+    <key name="enable-workspace" type="b">
+      <default>true</default>
+      <summary>Enable workspace indicator</summary>
+    </key>
+    <key name="enable-notifications" type="b">
+      <default>true</default>
+      <summary>Enable notification pill</summary>
+    </key>
+    <key name="enable-network" type="b">
+      <default>false</default>
+      <summary>Enable network indicator</summary>
+    </key>
+    <key name="enable-bluetooth" type="b">
+      <default>false</default>
+      <summary>Enable bluetooth indicator</summary>
+    </key>
+    <key name="enable-privacy" type="b">
+      <default>true</default>
+      <summary>Enable privacy indicator</summary>
+    </key>
+
+    <!-- Behavior -->
+    <key name="hover-expand" type="b">
+      <default>false</default>
+      <summary>Expand on hover</summary>
+    </key>
+    <key name="auto-collapse" type="b">
+      <default>true</default>
+      <summary>Auto collapse</summary>
+    </key>
+    <key name="collapse-timeout" type="i">
+      <default>3000</default>
+      <summary>Auto collapse timeout ms</summary>
+    </key>
+    <key name="notification-timeout" type="i">
+      <default>3500</default>
+      <summary>Notification display timeout ms</summary>
+    </key>
+    <key name="idle-time-format" type="s">
+      <default>'%H:%M'</default>
+      <summary>Idle time format (strftime)</summary>
+    </key>
+    <key name="debug-mode" type="b">
+      <default>false</default>
+      <summary>Debug test mode</summary>
+    </key>
+  </schema>
+</schemalist>

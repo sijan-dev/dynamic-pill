@@ -1,0 +1,12 @@
+{
+    "uuid": "dynamic-pill@fedora-gnome.io",
+    "name": "Dynamic Pill",
+    "description": "Apple Dynamic Island inspired pill for GNOME Shell — minimal idle clock that expands for volume, brightness, media, workspace, battery and notifications with smooth Clutter animations.",
+    "shell-version": ["50"],
+    "version": 1,
+    "version-name": "1.0.0",
+    "url": "https://github.com/sijan/dynamic-pill",
+    "gettext-domain": "dynamic-pill",
+    "settings-schema": "org.gnome.shell.extensions.dynamic-pill",
+    "session-modes": ["user", "unlock-dialog"]
+}
