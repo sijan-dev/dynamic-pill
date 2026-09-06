@@ -148,7 +148,16 @@ export default class DynamicPillPreferences extends ExtensionPreferences {
 
     _createEntryRow(settings, key, title, subtitle) {
         const row = new Adw.EntryRow({ title, text: settings.get_string(key) });
-        if (subtitle) row.set_subtitle(subtitle);
+        if (subtitle) {
+            // Adw.EntryRow on some libadwaita versions lacks set_subtitle
+            try {
+                if (typeof row.set_subtitle === 'function') row.set_subtitle(subtitle);
+                else if ('subtitle' in row) row.subtitle = subtitle;
+                else row.set_tooltip_text(subtitle);
+            } catch (e) {
+                try { row.set_tooltip_text(subtitle); } catch (_) {}
+            }
+        }
         settings.bind(key, row, 'text', Gio.SettingsBindFlags.DEFAULT);
         return row;
     }
