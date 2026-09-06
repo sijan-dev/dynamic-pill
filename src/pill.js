@@ -479,6 +479,126 @@ export class DynamicPill {
         } catch (e) {}
     }
 
+    _initDashboardToggles(wifiBtn, btBtn, micBtn) {
+        // Wi-Fi — org.freedesktop.NetworkManager WirelessEnabled
+        try {
+            Gio.DBusProxy.new_for_bus(Gio.BusType.SYSTEM, Gio.DBusProxyFlags.NONE, null,
+                'org.freedesktop.NetworkManager', '/org/freedesktop/NetworkManager', 'org.freedesktop.NetworkManager', null,
+                (p, res) => {
+                    try {
+                        const proxy = Gio.DBusProxy.new_for_bus_finish(res);
+                        if (!proxy) return;
+                        this._wifiProxy = proxy;
+                        const enabled = proxy.get_cached_property('WirelessEnabled')?.unpack() ?? true;
+                        wifiBtn.checked = enabled;
+                        wifiBtn.style_class = `dynamic-pill-toggle ${enabled ? 'active' : ''}`;
+                        // Click toggles
+                        wifiBtn.connect('clicked', () => {
+                            const cur = wifiBtn.checked;
+                            const next = !cur;
+                            wifiBtn.checked = next;
+                            wifiBtn.style_class = `dynamic-pill-toggle ${next ? 'active' : ''}`;
+                            proxy.call('Set', new GLib.Variant('(ssv)', ['org.freedesktop.NetworkManager', 'WirelessEnabled', new GLib.Variant('b', next)]),
+                                Gio.DBusCallFlags.NONE, -1, null, () => {});
+                            // also via Properties.Set
+                            Gio.DBus.system.call('org.freedesktop.NetworkManager', '/org/freedesktop/NetworkManager', 'org.freedesktop.DBus.Properties', 'Set',
+                                new GLib.Variant('(ssv)', ['org.freedesktop.NetworkManager', 'WirelessEnabled', new GLib.Variant('b', next)]),
+                                null, Gio.DBusCallFlags.NONE, -1, null, null);
+                        });
+                        proxy.connect('g-properties-changed', (pr, props) => {
+                            try {
+                                const dict = props.recursiveUnpack();
+                                const _u = v => (v && typeof v === 'object' && v.unpack) ? v.unpack() : v;
+                                if ('WirelessEnabled' in dict) {
+                                    const en = _u(dict['WirelessEnabled']);
+                                    wifiBtn.checked = en;
+                                    wifiBtn.style_class = `dynamic-pill-toggle ${en ? 'active' : ''}`;
+                                }
+                            } catch (e) {}
+                        });
+                    } catch (e) {}
+                });
+        } catch (e) { log(`[DynamicPill] wifi toggle init failed: ${e}`); }
+
+        // Bluetooth — BlueZ Adapter1 Powered (fallback to no-op if no adapter)
+        try {
+            // Try common adapter path
+            const tryAdapter = (path) => {
+                Gio.DBusProxy.new_for_bus(Gio.BusType.SYSTEM, Gio.DBusProxyFlags.NONE, null,
+                    'org.bluez', path, 'org.bluez.Adapter1', null,
+                    (pr, res) => {
+                        try {
+                            const proxy = Gio.DBusProxy.new_for_bus_finish(res);
+                            if (!proxy) return;
+                            this._btProxy = proxy;
+                            const powered = proxy.get_cached_property('Powered')?.unpack() ?? false;
+                            btBtn.checked = powered;
+                            btBtn.style_class = `dynamic-pill-toggle ${powered ? 'active' : ''}`;
+                            btBtn.connect('clicked', () => {
+                                const cur = btBtn.checked;
+                                const next = !cur;
+                                btBtn.checked = next;
+                                btBtn.style_class = `dynamic-pill-toggle ${next ? 'active' : ''}`;
+                                Gio.DBus.system.call('org.bluez', path, 'org.freedesktop.DBus.Properties', 'Set',
+                                    new GLib.Variant('(ssv)', ['org.bluez.Adapter1', 'Powered', new GLib.Variant('b', next)]),
+                                    null, Gio.DBusCallFlags.NONE, -1, null, null);
+                            });
+                            proxy.connect('g-properties-changed', (p, props) => {
+                                try {
+                                    const dict = props.recursiveUnpack();
+                                    const _u = v => (v && typeof v === 'object' && v.unpack) ? v.unpack() : v;
+                                    if ('Powered' in dict) {
+                                        const pw = _u(dict['Powered']);
+                                        btBtn.checked = pw;
+                                        btBtn.style_class = `dynamic-pill-toggle ${pw ? 'active' : ''}`;
+                                    }
+                                } catch (e) {}
+                            });
+                        } catch (e) {}
+                    });
+            };
+            tryAdapter('/org/bluez/hci0');
+            // Also listen for adapter added later — no-op for minimal B
+        } catch (e) { log(`[DynamicPill] bt toggle init failed: ${e}`); }
+
+        // Mic — Gvc default source (input) mute toggle
+        try {
+            const Gvc = (globalThis.imports && globalThis.imports.gi && globalThis.imports.gi.Gvc) || null;
+            if (Gvc && this._mixer) {
+                const src = this._mixer.get_default_source?.();
+                if (src) {
+                    const muted = src.get_is_muted();
+                    micBtn.checked = !muted;
+                    micBtn.style_class = `dynamic-pill-toggle ${!muted ? 'active' : ''}`;
+                    micBtn.connect('clicked', () => {
+                        const curMuted = src.get_is_muted();
+                        src.set_is_muted(!curMuted);
+                        const nowMuted = src.get_is_muted();
+                        micBtn.checked = !nowMuted;
+                        micBtn.style_class = `dynamic-pill-toggle ${!nowMuted ? 'active' : ''}`;
+                    });
+                    const sid = src.connect('notify::is-muted', () => {
+                        const m = src.get_is_muted();
+                        micBtn.checked = !m;
+                        micBtn.style_class = `dynamic-pill-toggle ${!m ? 'active' : ''}`;
+                    });
+                    this._mixerSignals.push([src, sid]);
+                } else {
+                    // No mic source — keep active placeholder, toggle just flips UI
+                    micBtn.connect('clicked', () => {
+                        micBtn.checked = !micBtn.checked;
+                        micBtn.style_class = `dynamic-pill-toggle ${micBtn.checked ? 'active' : ''}`;
+                    });
+                }
+            } else {
+                micBtn.connect('clicked', () => {
+                    micBtn.checked = !micBtn.checked;
+                    micBtn.style_class = `dynamic-pill-toggle ${micBtn.checked ? 'active' : ''}`;
+                });
+            }
+        } catch (e) { log(`[DynamicPill] mic toggle init failed: ${e}`); }
+    }
+
     _showDashboardView() {
         this._clearContent();
         this._currentView = 'dashboard';
@@ -560,6 +680,31 @@ export class DynamicPill {
         slidersRow.add_child(briCol);
 
         outer.add_child(slidersRow);
+
+        // Toggles row: Wi-Fi / Bluetooth / Mic — all inside pill (B)
+        const togglesRow = new St.BoxLayout({ vertical: false, spacing: 8, x_expand: true, style_class: 'dynamic-pill-toggles', y_align: Clutter.ActorAlign.CENTER });
+        const makeToggle = (iconName, labelText, active) => {
+            const btn = new St.Button({ style_class: `dynamic-pill-toggle ${active ? 'active' : ''}`, can_focus: true, toggle_mode: true, checked: active });
+            const box = new St.BoxLayout({ vertical: false, spacing: 6, x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER });
+            box.add_child(new St.Icon({ icon_name: iconName, style_class: 'dynamic-pill-toggle-icon', icon_size: 14 }));
+            const lbl = new St.Label({ text: labelText, style_class: 'dynamic-pill-toggle-label' });
+            box.add_child(lbl);
+            btn.set_child(box);
+            return btn;
+        };
+        const wifiBtn = makeToggle('network-wireless-symbolic', 'Wi-Fi', true);
+        const btBtn = makeToggle('bluetooth-active-symbolic', 'BT', false);
+        const micBtn = makeToggle('audio-input-microphone-symbolic', 'Mic', true);
+        togglesRow.add_child(wifiBtn);
+        togglesRow.add_child(btBtn);
+        togglesRow.add_child(micBtn);
+        outer.add_child(togglesRow);
+        this._views.set('dashboard-wifi-btn', wifiBtn);
+        this._views.set('dashboard-bt-btn', btBtn);
+        this._views.set('dashboard-mic-btn', micBtn);
+
+        // Wire toggles — all D-Bus/Gvc, stays in pill, no external windows
+        this._initDashboardToggles(wifiBtn, btBtn, micBtn);
 
         // Hint row
         const hintRow = new St.Label({ text: 'Click pill again to close • Everything stays in the pill', style_class: 'dynamic-pill-dashboard-hint', x_align: Clutter.ActorAlign.CENTER });
