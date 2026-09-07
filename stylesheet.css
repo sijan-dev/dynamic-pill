@@ -1,12 +1,14 @@
 /* Dynamic Pill — Fedora GNOME aesthetic */
 
 .dynamic-pill {
-    background-color: rgba(30, 30, 32, 0.94);
-    border: 1px solid rgba(255, 255, 255, 0.10);
+    /* OLED-black, DynamicGlacier-style "bump" surface */
+    background-color: rgba(0, 0, 0, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 999px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.38), 0 1px 2px rgba(0, 0, 0, 0.45);
+    /* St only supports a single shadow value (no comma-separated list) */
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.42);
     padding: 0;
-    color: #eeeeec;
+    color: #f7f7f7;
     font-feature-settings: "tnum";
     transition-duration: 250ms;
     /* ensure crisp rendering, avoid subpixel scale blur */
@@ -34,7 +36,7 @@
     font-size: 13px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
-    color: #ffffff;
+    color: #f7f7f7;
     text-align: center;
     /* prevent subpixel clipping */
     padding: 1px 0;
@@ -43,17 +45,17 @@
 .dynamic-pill-title {
     font-size: 12px;
     font-weight: 600;
-    color: #eeeeec;
+    color: #f7f7f7;
 }
 
 .dynamic-pill-subtitle {
     font-size: 11px;
-    color: rgba(255, 255, 255, 0.65);
+    color: #7f7f7f;
 }
 
 .dynamic-pill-icon {
     icon-size: 16px;
-    color: #ffffff;
+    color: #f7f7f7;
 }
 
 .dynamic-pill-icon-large {
@@ -79,13 +81,13 @@
 .dynamic-pill-media-title {
     font-size: 13px;
     font-weight: 600;
-    color: #ffffff;
+    color: #f7f7f7;
     max-width: 220px;
 }
 
 .dynamic-pill-media-artist {
     font-size: 11px;
-    color: rgba(255, 255, 255, 0.65);
+    color: #7f7f7f;
     max-width: 220px;
 }
 
@@ -126,7 +128,7 @@
 }
 
 .dynamic-pill-volume-muted {
-    color: rgba(255, 255, 255, 0.45);
+    color: #7f7f7f;
 }
 
 /* Dashboard — in-pill minimal control center (A) */
@@ -147,7 +149,7 @@
 
 .dynamic-pill-dashboard-hint {
     font-size: 10px;
-    color: rgba(255, 255, 255, 0.45);
+    color: #7f7f7f;
     padding-top: 2px;
 }
 
@@ -198,13 +200,32 @@
 
 .dynamic-pill-toggle-icon {
     icon-size: 14px;
-    color: #ffffff;
+    color: #f7f7f7;
 }
 
 .dynamic-pill-toggle-label {
     font-size: 11px;
     font-weight: 600;
-    color: #ffffff;
+    color: #f7f7f7;
+}
+
+/* Privacy indicator dot — DynamicGlacier convention: camera green, mic orange */
+.dynamic-pill-privacy-dot {
+    border-radius: 999px;
+    width: 8px;
+    height: 8px;
+}
+
+.dynamic-pill-privacy-dot.mic {
+    background-color: #f5a623;
+}
+
+.dynamic-pill-privacy-dot.camera {
+    background-color: #2ecc71;
+}
+
+.dynamic-pill-privacy-dot.screen {
+    background-color: #3584e4;
 }
 
 /* Light variant when GNOME is in light mode — subtle adaptation */

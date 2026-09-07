@@ -7,6 +7,17 @@ import GObject from 'gi://GObject';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Slider from 'resource:///org/gnome/shell/ui/slider.js';
 
+// Newer St (GNOME 46+) dropped the construct-only "spacing" property from
+// St.BoxLayout — spacing is now expressed purely through CSS. This wrapper
+// keeps the old call sites unchanged while applying spacing via inline style.
+function newBoxLayout(props = {}) {
+    const { spacing, ...rest } = props;
+    const box = new St.BoxLayout(rest);
+    if (spacing !== undefined && spacing !== null)
+        box.style = `${rest.style ? rest.style + ' ' : ''}spacing: ${spacing}px;`;
+    return box;
+}
+
 export class DynamicPill {
     constructor(stateManager, settings, extensionPath) {
         this._stateManager = stateManager;
@@ -55,7 +66,7 @@ export class DynamicPill {
         });
 
         // The actual pill
-        this._pill = new St.BoxLayout({
+        this._pill = newBoxLayout({
             style_class: 'dynamic-pill',
             vertical: false,
             reactive: true,
@@ -70,7 +81,7 @@ export class DynamicPill {
         });
 
         // Content box inside pill
-        this._contentBox = new St.BoxLayout({
+        this._contentBox = newBoxLayout({
             style_class: 'dynamic-pill-content',
             vertical: false,
             x_expand: false,
@@ -371,7 +382,7 @@ export class DynamicPill {
         this._clearContent();
         this._currentView = 'idle';
 
-        const box = new St.BoxLayout({
+        const box = newBoxLayout({
             style_class: 'dynamic-pill-idle',
             vertical: false,
             x_align: Clutter.ActorAlign.CENTER,
@@ -603,7 +614,7 @@ export class DynamicPill {
         this._clearContent();
         this._currentView = 'dashboard';
 
-        const outer = new St.BoxLayout({
+        const outer = newBoxLayout({
             vertical: true,
             style_class: 'dynamic-pill-dashboard',
             x_expand: false,
@@ -615,18 +626,18 @@ export class DynamicPill {
         // Media row (if cached)
         const media = this._mediaCache;
         if (media) {
-            const mediaRow = new St.BoxLayout({ vertical: false, spacing: 10, style_class: 'dynamic-pill-dashboard-media', x_expand: true });
+            const mediaRow = newBoxLayout({ vertical: false, spacing: 10, style_class: 'dynamic-pill-dashboard-media', x_expand: true });
             const artBox = new St.Widget({ style_class: 'dynamic-pill-media-art', width: 44, height: 44, layout_manager: new Clutter.BinLayout() });
             const artIcon = new St.Icon({ icon_name: 'audio-x-generic-symbolic', icon_size: 22, x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER });
             artBox.add_child(artIcon);
-            const textCol = new St.BoxLayout({ vertical: true, x_expand: true, y_align: Clutter.ActorAlign.CENTER });
+            const textCol = newBoxLayout({ vertical: true, x_expand: true, y_align: Clutter.ActorAlign.CENTER });
             const title = new St.Label({ text: media.title || 'No track', style_class: 'dynamic-pill-media-title' });
             title.clutter_text.set_single_line_mode(true);
             const artist = new St.Label({ text: media.artist || media.album || 'Unknown', style_class: 'dynamic-pill-media-artist' });
             artist.clutter_text.set_single_line_mode(true);
             textCol.add_child(title);
             textCol.add_child(artist);
-            const controls = new St.BoxLayout({ vertical: false, spacing: 6, y_align: Clutter.ActorAlign.CENTER, style_class: 'dynamic-pill-media-controls' });
+            const controls = newBoxLayout({ vertical: false, spacing: 6, y_align: Clutter.ActorAlign.CENTER, style_class: 'dynamic-pill-media-controls' });
             const prevBtn = new St.Button({ style_class: 'dynamic-pill-media-button', can_focus: true });
             prevBtn.add_child(new St.Icon({ icon_name: 'media-skip-backward-symbolic', icon_size: 14 }));
             prevBtn.connect('clicked', () => this._mediaAction(media._playerName, 'Previous'));
@@ -651,11 +662,11 @@ export class DynamicPill {
         }
 
         // Sliders row: volume + brightness
-        const slidersRow = new St.BoxLayout({ vertical: false, spacing: 16, x_expand: true });
+        const slidersRow = newBoxLayout({ vertical: false, spacing: 16, x_expand: true });
 
         // Volume column
-        const volCol = new St.BoxLayout({ vertical: true, x_expand: true, spacing: 4 });
-        const volHeader = new St.BoxLayout({ vertical: false, spacing: 6 });
+        const volCol = newBoxLayout({ vertical: true, x_expand: true, spacing: 4 });
+        const volHeader = newBoxLayout({ vertical: false, spacing: 6 });
         volHeader.add_child(new St.Icon({ icon_name: 'audio-volume-high-symbolic', style_class: 'dynamic-pill-icon', icon_size: 14 }));
         volHeader.add_child(new St.Label({ text: 'Volume', style_class: 'dynamic-pill-title', x_expand: true }));
         const volValueLabel = new St.Label({ text: '—', style_class: 'dynamic-pill-subtitle' });
@@ -667,8 +678,8 @@ export class DynamicPill {
         slidersRow.add_child(volCol);
 
         // Brightness column
-        const briCol = new St.BoxLayout({ vertical: true, x_expand: true, spacing: 4 });
-        const briHeader = new St.BoxLayout({ vertical: false, spacing: 6 });
+        const briCol = newBoxLayout({ vertical: true, x_expand: true, spacing: 4 });
+        const briHeader = newBoxLayout({ vertical: false, spacing: 6 });
         briHeader.add_child(new St.Icon({ icon_name: 'display-brightness-symbolic', style_class: 'dynamic-pill-icon', icon_size: 14 }));
         briHeader.add_child(new St.Label({ text: 'Brightness', style_class: 'dynamic-pill-title', x_expand: true }));
         const briValueLabel = new St.Label({ text: '—', style_class: 'dynamic-pill-subtitle' });
@@ -682,10 +693,10 @@ export class DynamicPill {
         outer.add_child(slidersRow);
 
         // Toggles row: Wi-Fi / Bluetooth / Mic — all inside pill (B)
-        const togglesRow = new St.BoxLayout({ vertical: false, spacing: 8, x_expand: true, style_class: 'dynamic-pill-toggles', y_align: Clutter.ActorAlign.CENTER });
+        const togglesRow = newBoxLayout({ vertical: false, spacing: 8, x_expand: true, style_class: 'dynamic-pill-toggles', y_align: Clutter.ActorAlign.CENTER });
         const makeToggle = (iconName, labelText, active) => {
             const btn = new St.Button({ style_class: `dynamic-pill-toggle ${active ? 'active' : ''}`, can_focus: true, toggle_mode: true, checked: active });
-            const box = new St.BoxLayout({ vertical: false, spacing: 6, x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER });
+            const box = newBoxLayout({ vertical: false, spacing: 6, x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER });
             box.add_child(new St.Icon({ icon_name: iconName, style_class: 'dynamic-pill-toggle-icon', icon_size: 14 }));
             const lbl = new St.Label({ text: labelText, style_class: 'dynamic-pill-toggle-label' });
             box.add_child(lbl);
@@ -813,8 +824,8 @@ export class DynamicPill {
         const muted = data.muted ?? false;
         const pct = Math.round(level * 100);
 
-        const outer = new St.BoxLayout({ vertical: true, style_class: 'dynamic-pill-content', x_expand: true, width: 280 });
-        const topRow = new St.BoxLayout({ vertical: false, x_align: Clutter.ActorAlign.FILL });
+        const outer = newBoxLayout({ vertical: true, style_class: 'dynamic-pill-content', x_expand: true, width: 280 });
+        const topRow = newBoxLayout({ vertical: false, x_align: Clutter.ActorAlign.FILL });
         const iconName = muted ? 'audio-volume-muted-symbolic' : level > 0.66 ? 'audio-volume-high-symbolic' : level > 0.33 ? 'audio-volume-medium-symbolic' : 'audio-volume-low-symbolic';
         const icon = new St.Icon({ icon_name: iconName, style_class: 'dynamic-pill-icon', y_align: Clutter.ActorAlign.CENTER });
         const title = new St.Label({ text: muted ? 'Muted' : 'Volume', style_class: 'dynamic-pill-title', x_expand: true, y_align: Clutter.ActorAlign.CENTER });
@@ -840,8 +851,8 @@ export class DynamicPill {
         const level = data.level ?? 0.5;
         const pct = Math.round(level * 100);
 
-        const outer = new St.BoxLayout({ vertical: true, style_class: 'dynamic-pill-content', x_expand: true, width: 280 });
-        const topRow = new St.BoxLayout({ vertical: false, x_align: Clutter.ActorAlign.FILL });
+        const outer = newBoxLayout({ vertical: true, style_class: 'dynamic-pill-content', x_expand: true, width: 280 });
+        const topRow = newBoxLayout({ vertical: false, x_align: Clutter.ActorAlign.FILL });
         const icon = new St.Icon({ icon_name: 'display-brightness-symbolic', style_class: 'dynamic-pill-icon' });
         const title = new St.Label({ text: 'Brightness', style_class: 'dynamic-pill-title', x_expand: true });
         const pctLabel = new St.Label({ text: `${pct}%`, style_class: 'dynamic-pill-subtitle' });
@@ -862,7 +873,7 @@ export class DynamicPill {
         this._clearContent();
         this._currentView = 'media';
 
-        const outer = new St.BoxLayout({ vertical: false, spacing: 12, width: 380, style_class: 'dynamic-pill-content' });
+        const outer = newBoxLayout({ vertical: false, spacing: 12, width: 380, style_class: 'dynamic-pill-content' });
 
         // Art
         const artBox = new St.Widget({ style_class: 'dynamic-pill-media-art', width: 48, height: 48, layout_manager: new Clutter.BinLayout() });
@@ -874,13 +885,13 @@ export class DynamicPill {
         }
         artBox.add_child(artIcon);
 
-        const textCol = new St.BoxLayout({ vertical: true, x_expand: true, y_align: Clutter.ActorAlign.CENTER });
+        const textCol = newBoxLayout({ vertical: true, x_expand: true, y_align: Clutter.ActorAlign.CENTER });
         const title = new St.Label({ text: data.title || 'No track', style_class: 'dynamic-pill-media-title' });
         const artist = new St.Label({ text: data.artist || data.album || 'Unknown', style_class: 'dynamic-pill-media-artist' });
         textCol.add_child(title);
         textCol.add_child(artist);
 
-        const controls = new St.BoxLayout({ vertical: false, spacing: 6, y_align: Clutter.ActorAlign.CENTER, style_class: 'dynamic-pill-media-controls' });
+        const controls = newBoxLayout({ vertical: false, spacing: 6, y_align: Clutter.ActorAlign.CENTER, style_class: 'dynamic-pill-media-controls' });
 
         const prevBtn = new St.Button({ style_class: 'dynamic-pill-media-button', can_focus: true });
         prevBtn.add_child(new St.Icon({ icon_name: 'media-skip-backward-symbolic', icon_size: 14 }));
@@ -926,7 +937,7 @@ export class DynamicPill {
         const charging = state === 'charging' || state === 'pending-charge';
         const warning = data.warning || level <= 15;
 
-        const box = new St.BoxLayout({ vertical: false, spacing: 8, style_class: 'dynamic-pill-content' });
+        const box = newBoxLayout({ vertical: false, spacing: 8, style_class: 'dynamic-pill-content' });
         const iconName = charging ? 'battery-good-charging-symbolic' : level > 80 ? 'battery-full-symbolic' : level > 50 ? 'battery-good-symbolic' : level > 20 ? 'battery-low-symbolic' : 'battery-caution-symbolic';
         const icon = new St.Icon({ icon_name: iconName, style_class: 'dynamic-pill-icon' + (charging ? ' dynamic-pill-battery-charging' : '') });
         const label = new St.Label({ text: charging ? `Charging ${level}%` : warning ? `Battery low ${level}%` : `Battery ${level}%`, style_class: 'dynamic-pill-title' });
@@ -938,7 +949,7 @@ export class DynamicPill {
         this._clearContent();
         this._currentView = 'workspace';
         const idx = (data.index ?? 0) + 1;
-        const box = new St.BoxLayout({ vertical: false, spacing: 6, style_class: 'dynamic-pill-content' });
+        const box = newBoxLayout({ vertical: false, spacing: 6, style_class: 'dynamic-pill-content' });
         const icon = new St.Icon({ icon_name: 'view-grid-symbolic', style_class: 'dynamic-pill-icon' });
         const label = new St.Label({ text: `Workspace ${idx}`, style_class: 'dynamic-pill-workspace' });
         box.add_child(icon); box.add_child(label);
@@ -948,10 +959,10 @@ export class DynamicPill {
     _showNotificationView(data = {}) {
         this._clearContent();
         this._currentView = 'notification';
-        const outer = new St.BoxLayout({ vertical: false, spacing: 10, width: 360, style_class: 'dynamic-pill-content' });
+        const outer = newBoxLayout({ vertical: false, spacing: 10, width: 360, style_class: 'dynamic-pill-content' });
         const dot = new St.Widget({ style_class: 'dynamic-pill-notification-dot', y_align: Clutter.ActorAlign.CENTER });
         dot.set_size(8, 8);
-        const textCol = new St.BoxLayout({ vertical: true, x_expand: true });
+        const textCol = newBoxLayout({ vertical: true, x_expand: true });
         const app = new St.Label({ text: data.app || 'Notification', style_class: 'dynamic-pill-title' });
         const summary = new St.Label({ text: data.summary || data.body || '', style_class: 'dynamic-pill-subtitle' });
         textCol.add_child(app); textCol.add_child(summary);
@@ -965,9 +976,17 @@ export class DynamicPill {
     _showGenericView(data = {}) {
         this._clearContent();
         this._currentView = 'generic';
-        const box = new St.BoxLayout({ vertical: false, spacing: 8, style_class: 'dynamic-pill-content' });
+        const box = newBoxLayout({ vertical: false, spacing: 8, style_class: 'dynamic-pill-content' });
+        // DynamicGlacier-style status dot (camera green / mic orange / screen blue)
+        if (data.dot) {
+            const dot = new St.Widget({
+                style_class: `dynamic-pill-privacy-dot ${data.dot}`,
+                y_align: Clutter.ActorAlign.CENTER,
+            });
+            box.add_child(dot);
+        }
         const icon = new St.Icon({ icon_name: data.icon || 'dialog-information-symbolic', style_class: 'dynamic-pill-icon' });
-        const col = new St.BoxLayout({ vertical: true });
+        const col = newBoxLayout({ vertical: true });
         const title = new St.Label({ text: data.title || '', style_class: 'dynamic-pill-title' });
         col.add_child(title);
         if (data.subtitle) {

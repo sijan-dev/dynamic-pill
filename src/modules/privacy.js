@@ -54,11 +54,11 @@ export class PrivacyModule {
         try {
             this._screenCastSubId = Gio.DBus.session.signal_subscribe(
                 null, 'org.gnome.Mutter.ScreenCast', 'SessionAdded', null, null, Gio.DBusSignalFlags.NONE,
-                () => this._pushPrivacy('display-projecteda', 'Screen Sharing')
+                () => this._pushPrivacy('display-projecteda', 'Screen Sharing', 'screen')
             );
             this._screenCastRemovedId = Gio.DBus.session.signal_subscribe(
                 null, 'org.gnome.Mutter.ScreenCast', 'SessionRemoved', null, null, Gio.DBusSignalFlags.NONE,
-                () => this._pushPrivacy('view-reveal-symbolic', 'Screen Share Ended', 1500)
+                () => this._pushPrivacy('view-reveal-symbolic', 'Screen Share Ended', 'screen', 1500)
             );
         } catch (e) {}
     }
@@ -67,16 +67,16 @@ export class PrivacyModule {
         if (!visible) return;
         // Try to detect which privacy feature
         try {
-            this._pushPrivacy('audio-input-microphone-symbolic', 'Microphone Active');
+            this._pushPrivacy('audio-input-microphone-symbolic', 'Microphone Active', 'mic');
         } catch (e) {}
     }
 
-    _pushPrivacy(icon, title, duration = 3500) {
+    _pushPrivacy(icon, title, dot, duration = 3500) {
         this._stateManager.push({
             id: 'privacy',
             priority: Priority.PRIVACY,
             view: 'generic',
-            data: { icon, title, subtitle: '' },
+            data: { icon, title, subtitle: '', dot },
             duration,
         });
     }

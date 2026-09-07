@@ -58,9 +58,15 @@ export class NotificationsModule {
     _onSourceAdded(source) {
         try {
             const id = source.connect('notification-added', (src, notification) => this._onNotification(notification, src));
-            this._signalIds.push([source, id]);
-            // label
-            // log(`[DynamicPill] source added: ${source.title || source.appName}`)
+            const entry = [source, id];
+            this._signalIds.push(entry);
+            // Sources get destroyed independently of the extension's lifecycle
+            // (e.g. app quits); drop our bookkeeping then so disable() never
+            // tries to disconnect from an already-disposed object.
+            const destroyId = source.connect('destroy', () => {
+                this._signalIds = this._signalIds.filter(e => e !== entry);
+            });
+            this._signalIds.push([source, destroyId]);
         } catch (e) {}
     }
 
